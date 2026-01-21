@@ -57,8 +57,8 @@ export class Cliente extends Document {
   @Prop({ default: 'Activo', enum: ['Activo', 'Inactivo'] })
   estado: 'Activo' | 'Inactivo';
 
-  @Prop({ default: true })
-  activo: boolean;
+@Prop({ type: Boolean, default: true })
+activo: boolean;
 
   @Prop()
   observaciones?: string;
@@ -99,4 +99,3 @@ ClienteSchema.index({ empresaId: 1, rucCi: 1 }, {
   partialFilterExpression: { rucCi: { $exists: true, $ne: null } } 
 });
 ClienteSchema.index({ empresaId: 1, activo: 1 });
-ClienteSchema.index({ empresaId: 1, nombre: 1 });

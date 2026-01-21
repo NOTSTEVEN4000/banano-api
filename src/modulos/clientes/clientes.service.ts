@@ -33,9 +33,13 @@ export class ClientesService {
 
     const nombreUpper = dto.nombre.toUpperCase().trim();
 
+    // Cambia el $or para que solo busque por ID único real (RUC o ID Externo)
     const existente = await this.model.findOne({
       empresaId,
-      $or: [{ idExterno: dto.idExterno }, { nombre: nombreUpper }],
+      $or: [
+        { idExterno: dto.idExterno }, 
+        { rucCi: dto.rucCi } // Es mejor validar que no se repita el RUC
+      ],
     });
 
     if (existente) {
@@ -70,13 +74,66 @@ export class ClientesService {
     return this.sanitizar(nuevo);
   }
 
-  async listar(user: any) {
-    const empresaId = this.getEmpresaId(user);
-    return this.model
-      .find({ empresaId, activo: true })
-      .sort({ nombre: 1 })
-      .lean();
+// clientes.service.ts
+// clientes.service.ts -> Método listar
+
+async listar(user: any, pagina: number = 1, limite: number = 20, search?: string, activo?: string) {
+  const empresaId = this.getEmpresaId(user);
+  
+  const page = Math.max(1, pagina);
+  const limit = Math.max(1, limite);
+  const skip = (page - 1) * limit;
+
+  const filtro: any = { empresaId };
+
+  // === CORRECCIÓN AQUÍ ===
+  // Según tu imagen, el campo es 'roles' (Array)
+  const misRoles = user.roles || []; 
+  const esAdmin = misRoles.includes('ADMINISTRADOR');
+
+  if (!esAdmin) {
+    // Si no es admin, forzamos ver solo activos
+    filtro.activo = true;
+  } else {
+    // Si es ADMIN, aplicamos el filtro de la URL si existe
+    if (activo === 'true') {
+      filtro.activo = true;
+    } else if (activo === 'false') {
+      filtro.activo = false;
+    }
+    // Si activo es undefined, el admin ve todos (no se agrega filtro.activo)
   }
+  // =======================
+
+  if (search) {
+    const regex = new RegExp(search, 'i');
+    filtro.$or = [
+      { nombre: regex },
+      { rucCi: regex },
+      { 'contacto.telefono': regex }
+    ];
+  }
+
+  // Este log te confirmará que ahora sí sale: {"empresaId":"empresa_001","activo":false}
+  console.log('Filtro final:', JSON.stringify(filtro));
+
+  const [items, total] = await Promise.all([
+    this.model
+      .find(filtro)
+      .sort({ nombre: 1 })
+      .skip(skip)
+      .limit(limit)
+      .lean(),
+    this.model.countDocuments(filtro),
+  ]);
+
+  return {
+    items: items.map(doc => this.sanitizar(doc)),
+    total,
+    paginas: Math.ceil(total / limit),
+    paginaActual: page
+  };
+}
 
   async listarTodos(user: any) {
     const empresaId = this.getEmpresaId(user);
@@ -108,9 +165,6 @@ async actualizar(idExterno: string, dto: ActualizarClienteDto, user: any) {
 
     const existente = await this.model.findOne(query);
     if (existente) {
-      if (dto.nombre && existente.nombre === dto.nombre.toUpperCase().trim()) {
-        throw new ConflictException('Ya existe otro cliente con este nombre.');
-      }
       if (dto.rucCi && existente.rucCi === dto.rucCi.trim()) {
         throw new ConflictException('Ya existe otro cliente con este RUC/CI.');
       }

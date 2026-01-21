@@ -7,6 +7,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -28,9 +29,16 @@ export class ClientesController {
     return this.service.crear(dto, req.user);
   }
 
+  // cliente.controller.ts
   @Get()
-  listar(@Req() req: any) {
-    return this.service.listar(req.user);
+  listar(
+    @Req() req: any,
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '20',
+    @Query('search') search?: string,
+    @Query('activo') activo?: string, // <--- CAPTURAR EL ESTADO
+  ) {
+    return this.service.listar(req.user, +page, +limit, search, activo);
   }
 
   @Get('todos')

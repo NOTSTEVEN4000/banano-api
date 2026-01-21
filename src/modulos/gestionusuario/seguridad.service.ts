@@ -43,7 +43,10 @@ export class SeguridadService {
   }
 
   // --- LÓGICA DE USUARIO LOGUEADO: Cambiar clave propia ---
-  async actualizarMiPropiaClave(usuarioId: string, dto: CambiarClaveInternaDto) {
+  async actualizarMiPropiaClave(
+    usuarioId: string,
+    dto: CambiarClaveInternaDto,
+  ) {
     // 1. Buscamos al usuario incluyendo el campo oculto claveHash
     const user = await this.usuarioModel
       .findById(usuarioId)
@@ -81,7 +84,13 @@ export class SeguridadService {
     // Guardamos el código en la BD. Usamos strict:false porque estos campos no están en el Schema original
     await this.usuarioModel.findByIdAndUpdate(
       user._id,
-      { $set: { codigoRecuperacion: codigo, codigoExpiracion: expiracion, intentosRecuperacion: 0 } },
+      {
+        $set: {
+          codigoRecuperacion: codigo,
+          codigoExpiracion: expiracion,
+          intentosRecuperacion: 0,
+        },
+      },
       { strict: false },
     );
 
@@ -142,74 +151,101 @@ export class SeguridadService {
   }
 
   // --- RECUPERACIÓN PASO 2: Validar código y cambiar clave ---
-async validarYResetear(dto: RestablecerConCodigoDto) {
-  const user = await this.usuarioModel.findOne({ 
-    correo: dto.correo.trim().toLowerCase() 
-  }).lean().exec();
+  async validarYResetear(dto: RestablecerConCodigoDto) {
+    const user = await this.usuarioModel
+      .findOne({
+        correo: dto.correo.trim().toLowerCase(),
+      })
+      .lean()
+      .exec();
 
-  if (!user) {
-    throw new NotFoundException('Usuario no encontrado');
-  }
-
-  const codigoBD = user['codigoRecuperacion'];
-  const expiracionBD = user['codigoExpiracion'];
-  const intentosBD = user['intentosRecuperacion'] || 0;
-
-  // 1. Verificar si el código existe (Si ya se usó o se borró por intentos)
-  if (!codigoBD) {
-    throw new BadRequestException('El código no es válido o ya fue utilizado. Solicite uno nuevo.');
-  }
-
-  const ahora = new Date();
-  const noExpirado = expiracionBD && ahora < new Date(expiracionBD);
-
-  // 2. Si el tiempo expiró, lo borramos de la BD de una vez
-  if (!noExpirado) {
-    await this.usuarioModel.updateOne(
-      { _id: user._id },
-      { $unset: { codigoRecuperacion: 1, codigoExpiracion: 1, intentosRecuperacion: 1 } },
-      { strict: false }
-    );
-    throw new BadRequestException('El código ha expirado. Por seguridad, debe solicitar uno nuevo.');
-  }
-
-  // 3. Validar el código de 6 dígitos
-  const codigoValido = String(codigoBD) === String(dto.codigo);
-
-  if (!codigoValido) {
-    const nuevosIntentos = intentosBD + 1;
-    const MAX_INTENTOS = 3;
-
-    if (nuevosIntentos >= MAX_INTENTOS) {
-      await this.usuarioModel.updateOne(
-        { _id: user._id },
-        { $unset: { codigoRecuperacion: 1, codigoExpiracion: 1, intentosRecuperacion: 1 } },
-        { strict: false }
-      );
-      throw new BadRequestException('Has agotado los intentos permitidos. Solicite un nuevo código.');
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado');
     }
 
+    const codigoBD = user['codigoRecuperacion'];
+    const expiracionBD = user['codigoExpiracion'];
+    const intentosBD = user['intentosRecuperacion'] || 0;
+
+    // 1. Verificar si el código existe (Si ya se usó o se borró por intentos)
+    if (!codigoBD) {
+      throw new BadRequestException(
+        'El código no es válido o ya fue utilizado. Solicite uno nuevo.',
+      );
+    }
+
+    const ahora = new Date();
+    const noExpirado = expiracionBD && ahora < new Date(expiracionBD);
+
+    // 2. Si el tiempo expiró, lo borramos de la BD de una vez
+    if (!noExpirado) {
+      await this.usuarioModel.updateOne(
+        { _id: user._id },
+        {
+          $unset: {
+            codigoRecuperacion: 1,
+            codigoExpiracion: 1,
+            intentosRecuperacion: 1,
+          },
+        },
+        { strict: false },
+      );
+      throw new BadRequestException(
+        'El código ha expirado. Por seguridad, debe solicitar uno nuevo.',
+      );
+    }
+
+    // 3. Validar el código de 6 dígitos
+    const codigoValido = String(codigoBD) === String(dto.codigo);
+
+    if (!codigoValido) {
+      const nuevosIntentos = intentosBD + 1;
+      const MAX_INTENTOS = 3;
+
+      if (nuevosIntentos >= MAX_INTENTOS) {
+        await this.usuarioModel.updateOne(
+          { _id: user._id },
+          {
+            $unset: {
+              codigoRecuperacion: 1,
+              codigoExpiracion: 1,
+              intentosRecuperacion: 1,
+            },
+          },
+          { strict: false },
+        );
+        throw new BadRequestException(
+          'Has agotado los intentos permitidos. Solicite un nuevo código.',
+        );
+      }
+
+      await this.usuarioModel.updateOne(
+        { _id: user._id },
+        { $set: { intentosRecuperacion: nuevosIntentos } },
+        { strict: false },
+      );
+
+      throw new BadRequestException(
+        `Código incorrecto. Te quedan ${MAX_INTENTOS - nuevosIntentos} intentos.`,
+      );
+    }
+
+    // 4. ÉXITO: Cambio de clave y borrado de campos (Único uso)
+    const claveHash = await bcrypt.hash(dto.nuevaClave, 10);
+
     await this.usuarioModel.updateOne(
       { _id: user._id },
-      { $set: { intentosRecuperacion: nuevosIntentos } },
-      { strict: false }
+      {
+        $set: { claveHash: claveHash },
+        $unset: {
+          codigoRecuperacion: 1,
+          codigoExpiracion: 1,
+          intentosRecuperacion: 1,
+        },
+      },
+      { strict: false },
     );
 
-    throw new BadRequestException(`Código incorrecto. Te quedan ${MAX_INTENTOS - nuevosIntentos} intentos.`);
+    return { exito: true };
   }
-
-  // 4. ÉXITO: Cambio de clave y borrado de campos (Único uso)
-  const claveHash = await bcrypt.hash(dto.nuevaClave, 10);
-  
-  await this.usuarioModel.updateOne(
-    { _id: user._id },
-    { 
-      $set: { claveHash: claveHash },
-      $unset: { codigoRecuperacion: 1, codigoExpiracion: 1, intentosRecuperacion: 1 }
-    },
-    { strict: false }
-  );
-
-  return { exito: true };
-}
 }

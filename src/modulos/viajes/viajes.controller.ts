@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Post, Query, Param, Body, Req, UseGuards } from '@nestjs/common';
+import { Controller, Get, Patch, Post, Query, Param, Body, Req, UseGuards, Put, Delete } from '@nestjs/common';
 import type { Request } from 'express';
 import { ViajesService } from './viajes.service';
 import { JwtGuard } from '../../comunes/guards/jwt.guard';
@@ -46,6 +46,25 @@ export class ViajesController {
         return this.service.registrarInsumos(idExterno, dto, (req as any).user);
     }
 
+    @Put(':idExterno/insumos')
+    @Roles(RolUsuario.ADMINISTRADOR, RolUsuario.OPERADOR)
+    actualizarInsumos(
+        @Param('idExterno') idExterno: string,
+        @Body() dto: RegistrarInsumosViajeDto,
+        @Req() req: Request,
+    ) {
+        return this.service.actualizarInsumos(idExterno, dto, (req as any).user);
+    }
+
+    @Delete(':idExterno/insumos')
+    @Roles(RolUsuario.ADMINISTRADOR, RolUsuario.OPERADOR)
+    eliminarInsumos(
+        @Param('idExterno') idExterno: string,
+        @Req() req: Request,
+    ) {
+        return this.service.eliminarInsumos(idExterno, (req as any).user);
+    }
+
     @Post(':idExterno/cargas-cajas')
     @Roles(RolUsuario.ADMINISTRADOR, RolUsuario.OPERADOR)
     cargas(@Param('idExterno') idExterno: string, @Body() dto: AgregarCargaCajasDto, @Req() req: Request) {
@@ -62,5 +81,25 @@ export class ViajesController {
     @Roles(RolUsuario.ADMINISTRADOR, RolUsuario.OPERADOR)
     entregar(@Param('idExterno') idExterno: string, @Body() dto: EntregarViajeDto, @Req() req: Request) {
         return this.service.entregar(idExterno, dto, (req as any).user);
+    }
+
+    // Nuevo: Listar insumos de un viaje específico
+    @Get(':idExterno/insumos')
+    @Roles(RolUsuario.ADMINISTRADOR, RolUsuario.OPERADOR, RolUsuario.CONTADOR, RolUsuario.LECTOR)
+    getInsumos(
+        @Param('idExterno') idExterno: string,
+        @Req() req: Request,
+    ) {
+        return this.service.getInsumos(idExterno, (req as any).user);
+    }
+
+    // Nuevo: Listar combustible de un viaje específico
+    @Get(':idExterno/combustible')
+    @Roles(RolUsuario.ADMINISTRADOR, RolUsuario.OPERADOR, RolUsuario.CONTADOR, RolUsuario.LECTOR)
+    getCombustible(
+        @Param('idExterno') idExterno: string,
+        @Req() req: Request,
+    ) {
+        return this.service.getCombustible(idExterno, (req as any).user);
     }
 }
