@@ -1,0 +1,6 @@
+export enum RolUsuario {
+  ADMINISTRADOR = 'ADMINISTRADOR',
+  OPERADOR = 'OPERADOR',
+  CONTADOR = 'CONTADOR',
+  LECTOR = 'LECTOR',
+}
