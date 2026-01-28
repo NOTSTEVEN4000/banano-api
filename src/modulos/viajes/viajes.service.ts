@@ -87,6 +87,18 @@ export class ViajesService {
     }
   }
 
+  // viajes.service.ts
+
+async listarTodoHistorial(user: any) {
+    // Filtramos únicamente por empresaId para traer todo lo que le pertenece
+    const viajes = await this.viajeModel
+        .find({ empresaId: user.empresaId })
+        .sort({ fechaCreacion: -1 }) // Los más recientes primero
+        .exec();
+    
+    return viajes;
+}
+
   async listarPorFecha(fecha: string, user: any) {
     const empresaId = this.empresaId(user);
     return this.viajeModel

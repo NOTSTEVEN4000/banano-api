@@ -28,6 +28,15 @@ export class ViajesController {
         return this.service.resumenPorFecha(fecha, (req as any).user);
     }
 
+    // viajes.controller.ts
+
+@Get('historial')
+@Roles(RolUsuario.ADMINISTRADOR) // Solo el Admin puede usar este endpoint
+async listarTodo(@Req() req: Request) {
+    const user = (req as any).user;
+    return this.service.listarTodoHistorial(user);
+}
+
     @Get()
     @Roles(RolUsuario.ADMINISTRADOR, RolUsuario.OPERADOR, RolUsuario.CONTADOR, RolUsuario.LECTOR)
     listar(@Query('fecha') fecha: string, @Req() req: Request) {

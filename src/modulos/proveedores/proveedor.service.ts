@@ -39,7 +39,9 @@ export class ProveedoresService {
     });
 
     if (existente) {
-      throw new ConflictException('Ya existe un proveedor con este ID externo o nombre.');
+      throw new ConflictException(
+        'Ya existe un proveedor con este ID externo o nombre.',
+      );
     }
 
     // 2. Preparar el nuevo documento basado en tu Schema
@@ -79,6 +81,18 @@ export class ProveedoresService {
       .lean();
   }
 
+
+  async obtenerUno(idExterno: string, user: any) {
+    const empresaId = this.getEmpresaId(user);
+    const doc = await this.model.findOne({ empresaId, idExterno }).lean();
+    if (!doc) {
+      throw new NotFoundException(
+        `Proveedor o Cliente con ID ${idExterno} no encontrado`,
+      );
+    }
+    return this.sanitizar(doc);
+  }
+
   async listarTodos(user: any) {
     const empresaId = this.getEmpresaId(user);
     return this.model
@@ -97,13 +111,17 @@ export class ProveedoresService {
       const query: any = { empresaId, idExterno: { $ne: idExterno } };
       const orConditions: any[] = [];
 
-      if (dto.nombre) orConditions.push({ nombre: dto.nombre.toUpperCase().trim() });
+      if (dto.nombre)
+        orConditions.push({ nombre: dto.nombre.toUpperCase().trim() });
       if (dto.rucCi) orConditions.push({ rucCi: dto.rucCi.trim() });
 
       if (orConditions.length > 0) {
         query.$or = orConditions;
         const existente = await this.model.findOne(query);
-        if (existente) throw new ConflictException('Ya existe otro proveedor con ese nombre o RUC/CI.');
+        if (existente)
+          throw new ConflictException(
+            'Ya existe otro proveedor con ese nombre o RUC/CI.',
+          );
       }
     }
 
@@ -117,23 +135,24 @@ export class ProveedoresService {
     if (dto.tipo) baseUpdate.tipo = dto.tipo;
     if (dto.rucCi !== undefined) baseUpdate.rucCi = dto.rucCi.trim();
     if (dto.estado) baseUpdate.estado = dto.estado;
-    if (dto.observaciones !== undefined) baseUpdate.observaciones = dto.observaciones;
+    if (dto.observaciones !== undefined)
+      baseUpdate.observaciones = dto.observaciones;
 
     // === ACTUALIZAR OBJETOS ANIDADOS (Contacto, Dirección, Condiciones) ===
     if (dto.contacto) {
-        for (const key in dto.contacto) {
-            baseUpdate[`contacto.${key}`] = dto.contacto[key];
-        }
+      for (const key in dto.contacto) {
+        baseUpdate[`contacto.${key}`] = dto.contacto[key];
+      }
     }
     if (dto.direccion) {
-        for (const key in dto.direccion) {
-            baseUpdate[`direccion.${key}`] = dto.direccion[key];
-        }
+      for (const key in dto.direccion) {
+        baseUpdate[`direccion.${key}`] = dto.direccion[key];
+      }
     }
     if (dto.condiciones) {
-        for (const key in dto.condiciones) {
-            baseUpdate[`condiciones.${key}`] = dto.condiciones[key];
-        }
+      for (const key in dto.condiciones) {
+        baseUpdate[`condiciones.${key}`] = dto.condiciones[key];
+      }
     }
 
     // === MANEJO ESPECIAL DEL PRECIO (Historial) ===
@@ -142,7 +161,7 @@ export class ProveedoresService {
       await this.model.updateOne(
         { empresaId, idExterno },
         { $set: { 'precio.historialPrecios.$[elem].hasta': new Date() } },
-        { arrayFilters: [{ 'elem.hasta': { $exists: false } }] }
+        { arrayFilters: [{ 'elem.hasta': { $exists: false } }] },
       );
 
       // Agregar nuevo precio al historial y actualizar precioActual
@@ -158,16 +177,16 @@ export class ProveedoresService {
               registradoPor: usuarioId,
             },
           },
-        }
+        },
       );
-      
+
       if (dto.precio.moneda) baseUpdate['precio.moneda'] = dto.precio.moneda;
     }
 
     const doc = await this.model.findOneAndUpdate(
       { empresaId, idExterno },
       { $set: baseUpdate },
-      { new: true }
+      { new: true },
     );
 
     if (!doc) throw new NotFoundException('Proveedor no encontrado');

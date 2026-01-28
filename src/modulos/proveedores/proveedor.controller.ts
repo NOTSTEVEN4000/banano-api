@@ -38,6 +38,11 @@ export class ProveedoresController {
     return this.service.listarTodos(req.user);
   }
 
+  @Get(':idExterno')
+  obtenerUno(@Param('idExterno') idExterno: string, @Req() req: any) {
+    return this.service.obtenerUno(idExterno, req.user);
+  }
+
   @Patch(':idExterno')
   actualizar(
     @Param('idExterno') idExterno: string,
