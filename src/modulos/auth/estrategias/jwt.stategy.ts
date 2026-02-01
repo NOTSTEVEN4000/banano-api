@@ -16,8 +16,14 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(payload: any) {
-    // lo que retornes aquí queda en request.user
-    return payload;
-  }
+async validate(payload: any) {
+  // Al retornar este objeto, NestJS inyecta estas propiedades en req.user
+  return {
+    id: payload.sub,        // <--- Mapeamos sub a id
+    usuario: payload.usuario,
+    correo: payload.correo,
+    roles: payload.roles,
+    empresaId: payload.empresaId,
+  };
+}
 }

@@ -12,6 +12,8 @@ import { ViajesModule } from './modulos/viajes/viajes.module';
 import { VehiculosModule } from './modulos/vehiculos/vehiculos.module';
 import { ProveedoresModule } from './modulos/proveedores/proveedor.module';
 import { SeguridadModule } from './modulos/gestionusuario/seguridad.module';
+import { EstadisticasModule } from './modulos/estadisticas/estadisticas.module';
+import { PagosModule } from './modulos/pagos/pagos.module';
 
 @Module({
   imports: [
@@ -32,6 +34,8 @@ import { SeguridadModule } from './modulos/gestionusuario/seguridad.module';
     VehiculosModule,
     ProveedoresModule,
     SeguridadModule,
+    EstadisticasModule,
+    PagosModule,
     ThrottlerModule.forRoot([
       {
         name: 'default',

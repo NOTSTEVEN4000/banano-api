@@ -5,6 +5,7 @@ import * as bcrypt from 'bcrypt';
 import { Usuario } from './schemas/usuario.schema';
 import { CrearUsuarioDto } from './dto/crear-usuario.dto';
 import { RolUsuario } from '../../comunes/tipos/roles.enum';
+import { ActualizarUsuarioDto } from './dto/actualizar-usuario.dto';
 
 @Injectable()
 export class UsuariosService {
@@ -57,5 +58,23 @@ export class UsuariosService {
     const user = await this.usuarioModel.findById(id, { claveHash: 0 }).lean();
     if (!user) throw new NotFoundException('Usuario no encontrado.');
     return user;
+  }
+
+  async actualizar(id: string, dto: ActualizarUsuarioDto) {
+    const datosActualizar: any = { ...dto };
+
+    // Si viene una clave nueva, hay que hashearla
+    if (dto.clave) {
+      datosActualizar.claveHash = await bcrypt.hash(dto.clave, 10);
+      delete datosActualizar.clave;
+    }
+
+    const usuarioEditado = await this.usuarioModel
+      .findByIdAndUpdate(id, { $set: datosActualizar }, { new: true, projection: { claveHash: 0 } })
+      .lean();
+
+    if (!usuarioEditado) throw new NotFoundException('Usuario no encontrado.');
+    
+    return usuarioEditado;
   }
 }
